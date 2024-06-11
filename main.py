@@ -728,7 +728,7 @@ def train(net: SpeedyLangNet | None = None, **settings):
                     'val_loss': val_loss, 
                     'val_acc': val_acc, 
                     'val_pplx': val_pplx, 
-                    'tokens_seen_val': tokens_seen, 
+                    'tokens_seen': tokens_seen, 
                     'epoch': epoch,
                     'batch_size': curr_batchsize,
                     'sequence_length': curr_length,
