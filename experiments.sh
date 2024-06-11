@@ -1,0 +1,2 @@
+python main.py --grokfast 1 0 --alpha 0.8 0.9 0.99 --gain 0.1 1.0 2.5 5.0 -cw --logfile results_sweep_alpha_and_gain.csv --wandb_project grokfast.hyperparams
+python main.py --model_scale 5 2 1 0.5 0.1 --seed 1000 --grokfast 1 0 --alpha 0.8 --gain 0.1 --max_epochs 16 -cw --logfile results_scaling.csv --wandb_project grokfast.scaling 
