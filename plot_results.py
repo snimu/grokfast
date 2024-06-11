@@ -44,6 +44,29 @@ def format_num_params(num_params: int, round_to_digits: int = 1) -> str:
     return f"{before_dot}{after_dot}{scalar}"
 
 
+def format_num_params(num_params: int, round_to_digits: int = 1) -> str:
+    if num_params < 1_000:
+        pnum = str(round(num_params, max(0, round_to_digits)))
+        scalar = ""
+    elif num_params < 1_000_000:
+        pnum = f"{round(num_params/1_000, max(0, round_to_digits))}"
+        scalar = "k"
+    elif num_params < 1_000_000_000:
+        pnum = f"{round(num_params/1_000_000, max(0, round_to_digits))}"
+        scalar = "M"
+    else:
+        pnum = f"{round(num_params/1_000_000_000, max(0, round_to_digits))}"
+        scalar = "B"
+
+    before_dot = pnum.split(".")[0]
+    after_dot = pnum.split(".")[1] if "." in pnum else ""
+    after_dot = "" if after_dot and (round_to_digits <= 0) else after_dot
+    after_dot = "" if after_dot and (int(after_dot) == 0) else after_dot
+    after_dot = "." + after_dot if after_dot else ""
+
+    return f"{before_dot}{after_dot}{scalar}"
+
+
 def load_xs_ys_avg_y(
         file: str,
         model_scale: float | None = None,
@@ -82,20 +105,19 @@ def load_xs_ys_avg_y(
         filters &= (pl.col("grokfast").eq(grokfast))
     if alpha is not None:
         filters &= (pl.col("alpha") == alpha)
-    
 
     df = pl.scan_csv(file).filter(filters).collect()
     df.sort("run_num")
     arrays = [series_to_array(df[to_plot][i]) for i in range(len(df[to_plot]))]
 
     if plot_over == "step":
-        return load_steps_ys_avg_ys(df, arrays, to_plot)
+        return load_steps_ys_avg_ys(df, arrays)
     elif plot_over == "epoch":
-        return load_epochs_ys_avg_ys(df, arrays, to_plot)
+        return load_epochs_ys_avg_ys(df, arrays)
     elif plot_over == "token":
-        return load_tokens_ys_avg_ys(df, arrays, to_plot)
+        return load_tokens_ys_avg_ys(df, arrays)
     elif plot_over == "time_sec":
-        return load_time_ys_avg_ys(df, arrays, to_plot)
+        return load_time_ys_avg_ys(df, arrays)
     else:
         raise ValueError(f"{plot_over} not a valid x-value")
 
@@ -103,50 +125,36 @@ def load_xs_ys_avg_y(
 def load_steps_ys_avg_ys(
         df: pl.DataFrame,
         arrays: list[np.ndarray],
-        to_plot: str,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     min_len = min([len(a) for a in arrays])
     ys = np.array([list(a[:min_len]) for a in arrays])
     num_datapoints = len(ys[0])
-
-    if "train" in to_plot:
-        xs = ((np.arange(num_datapoints) + 1) * 12.5).astype(int)
-    elif "val" in to_plot:
-        xs = (np.arange(num_datapoints) + 1) * 50
-
+    xs = ((np.arange(num_datapoints) + 1) * 12.5).astype(int)
     avg_ys = np.mean(ys, axis=0)
-
     return xs, ys, avg_ys
 
 
 def load_epochs_ys_avg_ys(
         df: pl.DataFrame,
         arrays: list[np.ndarray],
-        to_plot: str,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    epochs_str = "epochs_train" if "train" in to_plot else "epochs_val"
-    xs = [series_to_array(df[epochs_str][i]) for i in range(len(df[epochs_str]))]
+    xs = [series_to_array(df["epoch"][i]) for i in range(len(df["epoch"]))]
     return interpolate_linearly(xs, arrays)
 
 
 def load_tokens_ys_avg_ys(
         df: pl.DataFrame,
         arrays: list[np.ndarray],
-        to_plot: str,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    tokens_str = "tokens_seen_train" if "train" in to_plot else "tokens_seen_val"
-    xs = [series_to_array(df[tokens_str][i]) for i in range(len(df[tokens_str]))]
+    xs = [series_to_array(df["tokens_seen"][i]) for i in range(len(df["tokens_seen"]))]
     return interpolate_linearly(xs, arrays)
 
 
 def load_time_ys_avg_ys(
         df: pl.DataFrame,
         arrays: list[np.ndarray],
-        to_plot: str,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    assert "val" in to_plot, "Only validation data has time data"
-    time_str = "cumulative_time"
-    xs = [series_to_array(df[time_str][i]) for i in range(len(df[time_str]))]
+    xs = [series_to_array(df["cumulative_time"][i]) for i in range(len(df["cumulative_time"]))]
     return interpolate_linearly(xs, arrays)
 
 

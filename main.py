@@ -597,11 +597,11 @@ def train(net: SpeedyLangNet | None = None, **settings):
 
     # Save some results
     train_losses, val_losses, train_accs, val_accs, train_pplxs, val_pplxs = [], [], [], [], [], []
-    grad_norms, cumulative_time_train, cumulative_time_val = [], [], []
-    tokens_seen_train, tokens_seen_val, epochs_train, epochs_val = [], [], [], []
-    batch_sizes_train, batch_sizes_val = [], []
-    seq_lengths_train, seq_lengths_val = [], []
-    lrs_train, lrs_val, weight_decays_train, weight_decays_val = [], [], [], []
+    grad_norms, cumulative_time = [], []
+    tokens_seen, epochs = [], []
+    batch_sizes = []
+    seq_lengths = []
+    learning_rates, weight_decays = [], []
 
     #################
     # Training Mode #
@@ -653,27 +653,13 @@ def train(net: SpeedyLangNet | None = None, **settings):
             train_accs.append(train_acc)
             train_pplxs.append(float(calc_pplx(train_loss)))  # unnecessary float, but better safe than sorry
             grad_norms.append(grad_norm)
-            tokens_seen_train.append(tokens_seen)
-            epochs_train.append(epoch)
-            batch_sizes_train.append(curr_batchsize)
-            seq_lengths_train.append(curr_length)
-            cumulative_time_train.append(t_secs)
-            lrs_train.append(opt.param_groups[0]['lr'])
-            weight_decays_train.append(opt.param_groups[0]['weight_decay'])
-            if settings['log_wandb']:
-                wandb.log({
-                    'train_loss': train_loss, 
-                    'train_acc': train_acc, 
-                    'train_pplx': float(calc_pplx(train_loss)), 
-                    'grad_norm': grad_norm, 
-                    'tokens_seen_train': tokens_seen, 
-                    'epoch_train': epoch,
-                    'batch_size_train': curr_batchsize,
-                    'sequence_length_train': curr_length,
-                    'cumulative_time_train': t_secs,
-                    'lr_train': opt.param_groups[0]['lr'],
-                    'weight_decay_train': opt.param_groups[0]['weight_decay'],
-                })
+            tokens_seen.append(tokens_seen)
+            epochs.append(epoch)
+            batch_sizes.append(curr_batchsize)
+            seq_lengths.append(curr_length)
+            cumulative_time.append(t_secs)
+            learning_rates.append(opt.param_groups[0]['lr'])
+            weight_decays.append(opt.param_groups[0]['weight_decay'])
 
 
         # Once we've accumulated steps over all of our microbatches, take a single full-batchsize step.
@@ -732,26 +718,22 @@ def train(net: SpeedyLangNet | None = None, **settings):
             val_losses.append(val_loss)
             val_accs.append(val_acc)
             val_pplxs.append(val_pplx)
-            tokens_seen_val.append(tokens_seen)
-            epochs_val.append(epoch)
-            batch_sizes_val.append(curr_batchsize)
-            seq_lengths_val.append(curr_length)
-            cumulative_time_val.append(t_secs)
-            lrs_val.append(opt.param_groups[0]['lr'])
-            weight_decays_val.append(opt.param_groups[0]['weight_decay'])
             
             if settings['log_wandb']:
                 wandb.log({
+                    'train_loss': train_loss,
+                    'train_acc': train_acc,
+                    'train_pplx': calc_pplx(train_loss),
                     'val_loss': val_loss, 
                     'val_acc': val_acc, 
                     'val_pplx': val_pplx, 
                     'tokens_seen_val': tokens_seen, 
-                    'epoch_val': epoch,
-                    'batch_size_val': curr_batchsize,
-                    'sequence_length_val': curr_length,
-                    'cumulative_time_val': t_secs,
-                    'lr_val': opt.param_groups[0]['lr'],
-                    'weight_decay_val': opt.param_groups[0]['weight_decay'],
+                    'epoch': epoch,
+                    'batch_size': curr_batchsize,
+                    'sequence_length': curr_length,
+                    'cumulative_time': t_secs,
+                    'learning_rate': opt.param_groups[0]['lr'],
+                    'weight_decay': opt.param_groups[0]['weight_decay'],
                 })
 
             # Print out our training details
@@ -768,12 +750,9 @@ def train(net: SpeedyLangNet | None = None, **settings):
     return (
         net, val_loss,
         train_losses, val_losses, train_accs, val_accs, train_pplxs, val_pplxs, 
-        grad_norms, cumulative_time_train, cumulative_time_val, 
-        tokens_seen_train, tokens_seen_val, 
-        epochs_train, epochs_val,
-        batch_sizes_train, batch_sizes_val,
-        seq_lengths_train, seq_lengths_val,
-        lrs_train, lrs_val, weight_decays_train, weight_decays_val,
+        grad_norms, cumulative_time, 
+        tokens_seen, epochs,
+        batch_sizes, seq_lengths, learning_rates, weight_decays,
     )
 
 
@@ -1081,12 +1060,9 @@ def main():
             (
                     net, last_val_loss,
                     train_losses, val_losses, train_accs, val_accs, train_pplxs, val_pplxs, 
-                    grad_norms, cumulative_time_train, cumulative_time_val, 
-                    tokens_seen_train, tokens_seen_val, 
-                    epochs_train, epochs_val,
-                    batch_sizes_train, batch_sizes_val,
-                    seq_lengths_train, seq_lengths_val,
-                    lrs_train, lrs_val, weight_decays_train, weight_decays_val,
+                    grad_norms, cumulative_time, 
+                    tokens_seen, epochs,
+                    batch_sizes, seq_lengths, lrs, weight_decays,
             ) = train(
                 net=None,  # you can give this the net and it will just continue training on it
                 depth=depth,
@@ -1142,20 +1118,13 @@ def main():
                 "train_pplx": [str(train_pplxs)],
                 "val_pplx": [str(val_pplxs)],
                 "grad_norm": [str(grad_norms)],
-                "cumulative_time_train": [str(cumulative_time_train)],
-                "cumulative_time_val": [str(cumulative_time_val)],
-                "tokens_seen_train": [str(tokens_seen_train)],
-                "tokens_seen_val": [str(tokens_seen_val)],
-                "epochs_train": [str(epochs_train)],
-                "epochs_val": [str(epochs_val)],
-                "batch_sizes_train": [str(batch_sizes_train)],
-                "batch_sizes_val": [str(batch_sizes_val)],
-                "seq_lengths_train": [str(seq_lengths_train)],
-                "seq_lengths_val": [str(seq_lengths_val)],
-                "lrs_train": [str(lrs_train)],
-                "lrs_val": [str(lrs_val)],
-                "weight_decays_train": [str(weight_decays_train)],
-                "weight_decays_val": [str(weight_decays_val)],
+                "cumulative_time": [str(cumulative_time)],
+                "tokens_seen": [str(tokens_seen)],
+                "epoch": [str(epochs)],
+                "batch_size": [str(batch_sizes)],
+                "seq_length": [str(seq_lengths)],
+                "learning_rate": [str(lrs)],
+                "weight_decay": [str(weight_decays)],
             }
             df = pl.DataFrame(results)
 
