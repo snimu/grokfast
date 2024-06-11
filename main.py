@@ -479,7 +479,7 @@ def grokfast_gradients(net: SpeedyLangNet, alpha: float, gain: float) -> None:
         raise ValueError(f"alpha must be between 0 and 1, inclusive, not {alpha}.")
     
     with torch.no_grad():
-        for parameter in net.parameters:
+        for parameter in net.parameters():
             if parameter.grad is None:
                 parameter.grad_ema = torch.empty_like(parameter.grad, dtype=torch.float32).copy_(parameter.grad)  # copy gradients
             else:
@@ -1008,7 +1008,7 @@ def get_settings(args: argparse.Namespace) -> list:
     grokfast_settings = [
         (True, alpha, gain) 
         for alpha, gain in itertools.product(args.alpha, args.gain)
-    ] + ((False, 0.0, 0.0) if False in args.grokfast else [])
+    ] + ([(False, 0.0, 0.0)] if False in args.grokfast else [])
     settings = [
         (model_scale, depth, width, num_heads, linear_value, grokfast, alpha, gain)
         for (model_scale, depth, width, num_heads, linear_value), (grokfast, alpha, gain)
