@@ -936,10 +936,10 @@ def get_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--gain",
-        type=float, default=0.5, nargs="+",
+        type=float, default=0.1, nargs="+",
         help="gradient = gradient + gain * gradient_ema. "
         "Recommended: 0.1 <= lambda <= 5.0. "
-        "TYPE: float; DEFAULT: 0.5; NARGS: '+'"
+        "TYPE: float; DEFAULT: 0.1; NARGS: '+'"
     )
 
     # PARSE ARGS
