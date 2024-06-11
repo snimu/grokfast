@@ -531,6 +531,7 @@ def train(net: SpeedyLangNet | None = None, **settings):
     if settings['log_wandb']:
         wandb.finish()  # Finish any previous runs
         wandb.init(
+            name=f"alpha_{settings['alpha']}_gain_{settings['gain']}_depth_{settings['depth']}_width_{settings['width']}_heads_{settings['num_heads']}_{settings['run_num']}",
             project=settings['wandb_project'], 
             config=settings,
         )
@@ -1086,6 +1087,7 @@ def main():
                 grokfast=grokfast,
                 alpha=alpha,
                 gain=gain,
+                run_num=run_num,
             )
 
             # You can do whatever you want with your net here; I delete it to save VRAM
