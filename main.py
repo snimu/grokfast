@@ -598,9 +598,9 @@ def train(net: SpeedyLangNet | None = None, **settings):
     # Save some results
     train_losses, val_losses, train_accs, val_accs, train_pplxs, val_pplxs = [], [], [], [], [], []
     grad_norms, cumulative_time = [], []
-    tokens_seen, epochs = [], []
+    tokens_seen_list, epochs_list = [], []
     batch_sizes = []
-    seq_lengths = []
+    sequence_lengths = []
     learning_rates, weight_decays = [], []
 
     #################
@@ -653,10 +653,10 @@ def train(net: SpeedyLangNet | None = None, **settings):
             train_accs.append(train_acc)
             train_pplxs.append(float(calc_pplx(train_loss)))  # unnecessary float, but better safe than sorry
             grad_norms.append(grad_norm)
-            tokens_seen.append(tokens_seen)
-            epochs.append(epoch)
+            tokens_seen_list.append(tokens_seen)
+            epochs_list.append(epoch)
             batch_sizes.append(curr_batchsize)
-            seq_lengths.append(curr_length)
+            sequence_lengths.append(curr_length)
             cumulative_time.append(t_secs)
             learning_rates.append(opt.param_groups[0]['lr'])
             weight_decays.append(opt.param_groups[0]['weight_decay'])
@@ -751,8 +751,8 @@ def train(net: SpeedyLangNet | None = None, **settings):
         net, val_loss,
         train_losses, val_losses, train_accs, val_accs, train_pplxs, val_pplxs, 
         grad_norms, cumulative_time, 
-        tokens_seen, epochs,
-        batch_sizes, seq_lengths, learning_rates, weight_decays,
+        tokens_seen_list, epochs_list,
+        batch_sizes, sequence_lengths, learning_rates, weight_decays,
     )
 
 
@@ -1060,9 +1060,9 @@ def main():
             (
                     net, last_val_loss,
                     train_losses, val_losses, train_accs, val_accs, train_pplxs, val_pplxs, 
-                    grad_norms, cumulative_time, 
-                    tokens_seen, epochs,
-                    batch_sizes, seq_lengths, lrs, weight_decays,
+                    grad_norms, cumulative_times, 
+                    tokens_seen_list, epochs_list,
+                    batch_sizes, sequence_lengths, learning_rates, weight_decays,
             ) = train(
                 net=None,  # you can give this the net and it will just continue training on it
                 depth=depth,
@@ -1118,12 +1118,12 @@ def main():
                 "train_pplx": [str(train_pplxs)],
                 "val_pplx": [str(val_pplxs)],
                 "grad_norm": [str(grad_norms)],
-                "cumulative_time": [str(cumulative_time)],
-                "tokens_seen": [str(tokens_seen)],
-                "epoch": [str(epochs)],
+                "cumulative_time": [str(cumulative_times)],
+                "tokens_seen": [str(tokens_seen_list)],
+                "epoch": [str(epochs_list)],
                 "batch_size": [str(batch_sizes)],
-                "seq_length": [str(seq_lengths)],
-                "learning_rate": [str(lrs)],
+                "seq_length": [str(sequence_lengths)],
+                "learning_rate": [str(learning_rates)],
                 "weight_decay": [str(weight_decays)],
             }
             df = pl.DataFrame(results)
