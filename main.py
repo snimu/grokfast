@@ -480,8 +480,8 @@ def grokfast_gradients(net: SpeedyLangNet, alpha: float, gain: float) -> None:
     
     with torch.no_grad():
         for parameter in net.parameters():
-            if parameter.grad is None:
-                parameter.grad_ema = torch.empty_like(parameter.grad, dtype=torch.float32).copy_(parameter.grad)  # copy gradients
+            if not hasattr(parameter, "grad_ema"):
+                setattr(parameter, "grad_ema", torch.empty_like(parameter.grad, dtype=torch.float32).copy_(parameter.grad))  # copy gradients
             else:
                 parameter.grad_ema = alpha * parameter.grad_ema + (1 - alpha) * parameter.grad  # TODO: alpha vs (1-alpha) order
                 parameter.grad += gain * parameter.grad_ema
