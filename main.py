@@ -474,22 +474,34 @@ def format_num_params(num_params: int, round_to_digits: int = 1) -> str:
 #           Train and Eval             #
 ########################################
 
-def grokfast_gradients(net: SpeedyLangNet, alpha: float, gain: float) -> None:
+def grokfast_gradients(net: SpeedyLangNet, *, alpha: float, gain: float, grokfast: bool) -> float:
+    if not grokfast:
+        return 0.0
+
     if alpha < 0.0 or alpha > 1.0:
         raise ValueError(f"alpha must be between 0 and 1, inclusive, not {alpha}.")
     
+    total_numel = 0
+    l2 = 0.0
     with torch.no_grad():
         for parameter in net.parameters():
             if not hasattr(parameter, "grad_ema"):
                 setattr(parameter, "grad_ema", torch.empty_like(parameter.grad, dtype=torch.float32).copy_(parameter.grad))  # copy gradients
             else:
-                parameter.grad_ema = alpha * parameter.grad_ema + (1 - alpha) * parameter.grad  # TODO: alpha vs (1-alpha) order
+                parameter.grad_ema = alpha * parameter.grad_ema + (1 - alpha) * parameter.grad
                 parameter.grad += gain * parameter.grad_ema
+            
+            total_numel += parameter.numel
+            l2 += F.mse_loss(parameter.grad, parameter.grad_ema).item() * parameter.numel()
+
+    l2 /= total_numel
+    return float(l2)
 
 
 @torch.no_grad()
 def calc_pplx(loss: torch.Tensor | float) -> torch.Tensor | float:
     return 2.71828 ** loss
+
 
 def eval(net):
     ####################
@@ -603,6 +615,7 @@ def train(net: SpeedyLangNet | None = None, **settings):
     batch_sizes = []
     sequence_lengths = []
     learning_rates, weight_decays = [], []
+    l2_grad_to_grad_ema = []
 
     #################
     # Training Mode #
@@ -666,9 +679,7 @@ def train(net: SpeedyLangNet | None = None, **settings):
         # Once we've accumulated steps over all of our microbatches, take a single full-batchsize step.
         if curr_microbatch_step % discrete_sampled_microbatch_steps == 0:
             # Update using grokfast
-            if settings['grokfast']:
-                grokfast_gradients(net, settings['alpha'], settings['gain'])
-
+            l2_grad_to_grad_ema.append(grokfast_gradients(net, alpha=settings['alpha'], gain=settings['gain'], grokfast=settings['grokfast']))
             # Step the optimizer, then scheduler
             opt.step()
 
@@ -735,6 +746,7 @@ def train(net: SpeedyLangNet | None = None, **settings):
                     'cumulative_time': t_secs,
                     'learning_rate': opt.param_groups[0]['lr'],
                     'weight_decay': opt.param_groups[0]['weight_decay'],
+                    'l2_grad_to_grad_ema': l2_grad_to_grad_ema[-1],
                 })
 
             # Print out our training details
@@ -754,6 +766,7 @@ def train(net: SpeedyLangNet | None = None, **settings):
         grad_norms, cumulative_time, 
         tokens_seen_list, epochs_list,
         batch_sizes, sequence_lengths, learning_rates, weight_decays,
+        l2_grad_to_grad_ema,
     )
 
 
@@ -1064,6 +1077,7 @@ def main():
                     grad_norms, cumulative_times, 
                     tokens_seen_list, epochs_list,
                     batch_sizes, sequence_lengths, learning_rates, weight_decays,
+                    l2_grad_to_grad_ema,
             ) = train(
                 net=None,  # you can give this the net and it will just continue training on it
                 depth=depth,
@@ -1127,6 +1141,7 @@ def main():
                 "seq_length": [str(sequence_lengths)],
                 "learning_rate": [str(learning_rates)],
                 "weight_decay": [str(weight_decays)],
+                "l2_grad_to_grad_ema": [str(l2_grad_to_grad_ema)],
             }
             df = pl.DataFrame(results)
 
