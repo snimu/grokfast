@@ -491,7 +491,7 @@ def grokfast_gradients(net: SpeedyLangNet, *, alpha: float, gain: float, grokfas
                 parameter.grad_ema = alpha * parameter.grad_ema + (1 - alpha) * parameter.grad
                 parameter.grad += gain * parameter.grad_ema
             
-            total_numel += parameter.numel
+            total_numel += parameter.numel()
             l2 += F.mse_loss(parameter.grad, parameter.grad_ema).item() * parameter.numel()
 
     l2 /= total_numel
