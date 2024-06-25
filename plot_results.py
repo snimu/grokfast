@@ -6,6 +6,8 @@ import colorsys
 import matplotlib.pyplot as plt
 import polars as pl
 import numpy as np
+import rich.table
+from rich import print
 
 
 def close_plt() -> None:
@@ -79,6 +81,7 @@ def load_xs_ys_avg_y(
         seed: int | None = None,
         grokfast: bool | None = None,
         alpha: float | None = None,
+        gain: float | None = None,
         to_plot: Literal["val_loss", "train_losses", "val_accs", "train_accs", "val_pplxs", "train_pplxs"] = "val_loss",
         plot_over: Literal["step", "epoch", "token", "time_sec"] = "step",
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -105,6 +108,8 @@ def load_xs_ys_avg_y(
         filters &= (pl.col("grokfast").eq(grokfast))
     if alpha is not None:
         filters &= (pl.col("alpha") == alpha)
+    if gain is not None:
+        filters &= (pl.col("gain") == gain)
 
     df = pl.scan_csv(file).filter(filters).collect()
     df.sort("run_num")
@@ -261,64 +266,117 @@ def unique_depths(file: str) -> np.ndarray:
     )
 
 
+def plot_line(
+        color,
+        use_unique_colors: bool,
+        plot_all: bool,
+        loglog: bool,
+        to_plot: Literal["val_loss", "train_losses", "val_accs", "train_accs", "val_pplxs"],
+        plot_over: Literal["step", "epoch", "token", "time_sec"],
+        num_heads: int,
+        linear_value: bool,
+        depth: int,
+        width: int,
+        alpha: float,
+        gain: float,
+        grokfast: bool,
+        from_sample: int | None = None,
+        to_sample: int | None = None,
+):
+    xs, ys, avg_ys = load_xs_ys_avg_y(
+        file,
+        depth=depth,
+        width=width,
+        num_heads=num_heads,
+        linear_value=linear_value,
+        alpha=alpha,
+        gain=gain,
+        grokfast=grokfast,
+        to_plot=to_plot,
+        plot_over=plot_over,
+    )
+    xs = xs[from_sample:to_sample]
+    ys = ys[:, from_sample:to_sample]
+    avg_ys = avg_ys[from_sample:to_sample]
+    color = color if use_unique_colors else None
+    if plot_all:
+        for y in ys:
+            if loglog:
+                plt.loglog(xs, y, color=color, alpha=0.2)
+            else:
+                plt.plot(xs, y, color=color, alpha=0.2)
+
+    num_params = pl.scan_csv(file).filter(
+        (pl.col("num_heads") == num_heads)
+        & (pl.col("linear_value") == linear_value)
+        & (pl.col("depth") == depth)
+        & (pl.col("width") == width)
+        & (pl.col("alpha") == alpha)
+        & (pl.col("gain") == gain)
+    ).collect()["num_params"][0]
+    
+    label = (
+        f"depth={depth}, width={width}, #params={format_num_params(num_params)}"
+    )
+    if grokfast:
+        label += f"; grokfast (alpha={alpha}, gain={gain})"
+    if loglog:
+        plt.loglog(xs, avg_ys, color=color if plot_all else None, label=label)
+    else:
+        plt.plot(xs, avg_ys, color=color if plot_all else None, label=label)
+
+
 def example_plot_fct(
         file: str,
         depth: int | None = 8,
         width: int | None = 384,
         num_heads: int | None = None,
         linear_value: bool | None = False,
+        alpha: float | None = 0.8,
+        gain: float | None = 0.1,
         to_plot: Literal["val_loss", "train_losses", "val_accs", "train_accs", "val_pplxs"] = "val_loss",
         plot_over: Literal["step", "epoch", "token", "time_sec"] = "epoch",
         show: bool = True,
         loglog: bool = False,
         plot_all: bool = False,
+        use_unique_colors: bool = False,
+        from_sample: int | None = None,
+        to_sample: int | None = None,
 ) -> None:
-    settings = get_unique_settings(file, ["num_heads", "linear_value", "depth", "width"])
-
+    settings = get_unique_settings(file, ["num_heads", "linear_value", "depth", "width", "alpha", "gain", "grokfast"])
     if num_heads is not None:
-        settings = [(nh, lv, d, w) for nh, lv, d, w in settings if nh == num_heads]
+        settings = [(nh, lv, d, w, a, g, gf) for nh, lv, d, w, a, g, gf in settings if nh == num_heads]
     if linear_value is not None:
-        settings = [(nh, lv, d, w) for nh, lv, d, w in settings if lv == linear_value]
+        settings = [(nh, lv, d, w, a, g, gf) for nh, lv, d, w, a, g, gf in settings if lv == linear_value]
     if depth is not None:
-        settings = [(nh, lv, d, w) for nh, lv, d, w in settings if d == depth]
+        settings = [(nh, lv, d, w, a, g, gf) for nh, lv, d, w, a, g, gf in settings if d == depth]
     if width is not None:
-        settings = [(nh, lv, d, w) for nh, lv, d, w in settings if w == width]
+        settings = [(nh, lv, d, w, a, g, gf) for nh, lv, d, w, a, g, gf in settings if w == width]
+    if alpha is not None:
+        settings = [(nh, lv, d, w, a, g, gf) for nh, lv, d, w, a, g, gf in settings if a == alpha or not gf]
+    if gain is not None:
+        settings = [(nh, lv, d, w, a, g, gf) for nh, lv, d, w, a, g, gf in settings if g == gain or not gf]
 
     colors = generate_distinct_colors(len(settings))
 
-    for color, (num_heads_, linear_value_, depth_, width_) in zip(colors, settings):
-            xs, ys, avg_ys = load_xs_ys_avg_y(
-                file,
-                depth=depth_,
-                width=width_,
-                num_heads=num_heads_,
-                linear_value=linear_value_,
-                to_plot=to_plot,
-                plot_over=plot_over,
-            )
-            if plot_all:
-                for y in ys:
-                    if loglog:
-                        plt.loglog(xs, y, color=color, alpha=0.2)
-                    else:
-                        plt.plot(xs, y, color=color, alpha=0.2)
-
-            num_params = pl.scan_csv(file).filter(
-                (pl.col("num_heads") == num_heads_)
-                & (pl.col("linear_value") == linear_value_)
-                & (pl.col("depth") == depth_)
-                & (pl.col("width") == width_)
-            ).collect()["num_params"][0]
-            
-            label = (
-                f"num_heads={num_heads_}, linear_value={linear_value_}, "
-                f"depth={depth_}, width={width_}, #params={format_num_params(num_params)}"
-            )
-            if loglog:
-                plt.loglog(xs, avg_ys, color=color if plot_all else None, label=label)
-            else:
-                plt.plot(xs, avg_ys, color=color if plot_all else None, label=label)
-
+    for color, (num_heads_, linear_value_, depth_, width_, alpha_, gain_, grokfast) in zip(colors, settings):
+        plot_line(
+            color=color,
+            use_unique_colors=use_unique_colors,
+            plot_all=plot_all,
+            loglog=loglog,
+            to_plot=to_plot,
+            plot_over=plot_over,
+            num_heads=num_heads_,
+            linear_value=linear_value_,
+            depth=depth_,
+            width=width_,
+            alpha=alpha_,
+            gain=gain_,
+            grokfast=grokfast,
+            from_sample=from_sample,
+            to_sample=to_sample,
+        )
 
     fig = plt.gcf()
     fig.set_size_inches(12, 7)
@@ -332,21 +390,97 @@ def example_plot_fct(
     if show:
         plt.show()
     else:
-        # You should probably adjust the filename
-        plt.savefig(f"{to_plot}_vs_{plot_over}.png", dpi=300)
+        filename = f"{to_plot}_vs_{plot_over}"
+        if depth is not None:
+            filename += f"_depth_{depth}"
+        if width is not None:
+            filename += f"_width_{width}"
+        if alpha is not None:
+            filename += f"_alpha_{alpha}"
+        if gain is not None:
+            filename += f"_gain_{gain}"
+        if num_heads is not None:
+            filename += f"_num_heads_{num_heads}"
+        if linear_value is not None:
+            filename += f"_linear_value_{linear_value}"
+        if from_sample is not None:
+            filename += f"_from_{from_sample}"
+        if to_sample is not None:
+            filename += f"_to_{to_sample}"
+
+        plt.savefig(f"results/images/{filename}.png", dpi=300)
     close_plt()  # in case you call this function multiple times with different settings
 
 
+def n_best_vals(
+        file: str,
+        n: int,
+        best_is: Literal["min", "max"] = "min",
+        metric: Literal["val_loss", "train_losses", "val_accs", "train_accs", "val_pplxs"] = "val_loss",
+        alpha: float | None = None,
+        gain: float | None = None,
+        grokfast: bool | None = None,
+        from_sample: int | None = None,
+        to_sample: int | None = None,
+) -> pl.DataFrame:
+    settings = get_unique_settings(file, ["alpha", "gain", "grokfast"])
+    if alpha is not None:
+        settings = [(a, g, gf) for a, g, gf in settings if a == alpha or not gf]
+    if gain is not None:
+        settings = [(a, g, gf) for a, g, gf in settings if g == gain or not gf]
+
+    table = rich.table.Table("alpha", "gain", "grokfast", f"Mean of {best_is} {n} {metric}", f"Median of {best_is} {n} {metric}")
+    rows = []
+    for alpha_, gain_, grokfast_ in settings:
+        xs, ys, avg_ys = load_xs_ys_avg_y(
+            file,
+            alpha=alpha_,
+            gain=gain_,
+            grokfast=grokfast_,
+            to_plot=metric,
+            plot_over="epoch",
+        )
+        xs = xs[from_sample:to_sample]
+        avg_ys = avg_ys[from_sample:to_sample]
+        if best_is == "min":
+            best_vals = np.sort(avg_ys)[:n]
+        else:
+            best_vals = np.sort(avg_ys)[-n:]
+
+        rows.append((str(alpha_), str(gain_), str(grokfast_), f"{np.mean(best_vals).item():.2f}", f"{np.median(best_vals).item():.2f}"))
+
+    rows = sorted(rows, key=lambda x: float(x[3]), reverse=best_is == "max")
+    for row in rows:
+        table.add_row(*row)
+    print(table)
+
+
 if __name__ == "__main__":
-    example_plot_fct(
-        file="results_041.csv",
-        depth=None,  # sweep the depths
-        width=384,  # for a fixed width
-        num_heads=1,  # fixed num_heads
-        linear_value=None,  # With and without linear values --> compare effects of them for different depths
-        to_plot="val_loss",
-        plot_over="epoch",
-        show=True,
-        loglog=False,
-        plot_all=False,
+    file = "results/results_many_epochs.csv"
+    # example_plot_fct(
+    #     file=file,
+    #     depth=None,
+    #     width=None,
+    #     num_heads=None,
+    #     linear_value=None,
+    #     alpha=0.8,
+    #     gain=None,
+    #     to_plot="val_loss",
+    #     plot_over="epoch",
+    #     show=True,
+    #     loglog=False,
+    #     plot_all=False,
+    #     from_sample=None,
+    #     to_sample=None,
+    # )
+    n_best_vals(
+        file=file,
+        n=5,
+        best_is="min",
+        metric="val_loss",
+        alpha=None,
+        gain=None,
+        grokfast=None,
+        from_sample=None,
+        to_sample=50,
     )
