@@ -36,6 +36,8 @@ $$
 where $\nabla_{\theta}$ are the gradients with respect to the gradients $\theta$,
 and $\bar{\nabla_{\theta}}$ are their exponential moving average (EMA).
 
+Here is how I've implemented it (done before the paper's code was released):
+
 ```python
 import torch
 
