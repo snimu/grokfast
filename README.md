@@ -9,6 +9,14 @@ Quick summary:
 - It also doesn't hurt performance
 - Therefore, it might be helpful for improving performance on algorithmic tasks without hurting it on regular language tasks
 
+Table of contents:
+
+- [Background](#background)
+- [Results](#results)
+- [Summary and discussion](#summary-and-discussion)
+- [Acknowledgement](#acknowledgement)
+
+
 ## Background
 
 $\mathrm{grokfast}$ works on the assumption that low-frequency parts of gradients carry the most signal.
@@ -45,7 +53,9 @@ def grokfast(net: torch.Module, alpha: float, gain: float):
             parameter.grad += gain * parameter.grad_ema
 ```
 
-The authors show that this helps LLMs grok modular addition much faster than regular training.
+The authors recommend to use $\alpha \in \left[0.8, 0.99\right]$ and $\lambda \in \left[0.1, 5.0\right]$.
+
+They show that $\mathrm{grokfast}$ helps LLMs grok modular addition much faster than regular training.
 
 ## Results
 
@@ -74,7 +84,7 @@ As you can see, you can see nothing. So here is the average of the $5$ lowest va
 Clearly, not using $\mathrm{grokfast}$ seems to be best.
 The best alternative settings are $\alpha=0.9$, $\lambda=0.5$/$\lambda=0.1$.
 These are the least aggressive settings.
-I will only plot $\alpha=0.9$, $\lambda=0.5$ from now on.
+I will only plot $\alpha=0.9$, $\lambda=0.1$ from now on.
 Why do I plot anything at all?
 Well, it's possible that $\mathrm{grokfast}$ does help in early settings,
 so let's look at the first ~$25$ epochs:
@@ -128,20 +138,20 @@ Again: no. The two runs seem identical. The statistics say the same:
 
 On the one hand, $\mathrm{grokfast}$ doesn't seem to improve the performance of regular LLMs on normal language tasks.
 
-This isn't super surprising; wikitext cannot really be reduced to a simple algorithm, the way that modular addition can.
+This isn't super surprising; wikitext cannot really be reduced to a simple algorithm, the way that modular addition can, so what would $\mathrm{grokfast}$ be helping with?
 
 On the other hand, $\mathrm{grokfast}$ doesn't seem to *reduce* performance on those regular tasks; so if it does work on modular addition (or similar tasks), it could help improve LLM performance on tasks that can be reduced to algorithms, like addition or multiplication, while keeping performance on other tasks constant.
 
 That seems like a big win!
 
 
-## Acknoledgements
+## Acknowledgement
 
 The $\mathrm{grokfast}$ paper, again: https://arxiv.org/abs/2405.20233
 
 This package is based on my own [hlb-gpt-cli](https://github.com/snimu/hlb-gpt-cli),
 which is in turn based on [Fern](https://github.com/tysam-code)'s [hlb-gpt](https://github.com/tysam-code/hlb-gpt),
-who wants to be cited in the following way:
+who can be cited in the following way:
 
 ```
 cff-version: 1.2.0

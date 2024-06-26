@@ -315,15 +315,16 @@ def plot_line(
         & (pl.col("gain") == gain)
     ).collect()["num_params"][0]
     
-    label = (
-        f"depth={depth}, width={width}, #params={format_num_params(num_params)}"
-    )
     if grokfast:
-        label += f"; grokfast (alpha={alpha}, gain={gain})"
+        label = f"grokfast (alpha={alpha}, gain={gain})"
+    else:
+        label = "standard training"
     if loglog:
         plt.loglog(xs, avg_ys, color=color if plot_all else None, label=label)
     else:
         plt.plot(xs, avg_ys, color=color if plot_all else None, label=label)
+
+    return num_params
 
 
 def example_plot_fct(
@@ -360,7 +361,7 @@ def example_plot_fct(
     colors = generate_distinct_colors(len(settings))
 
     for color, (num_heads_, linear_value_, depth_, width_, alpha_, gain_, grokfast) in zip(colors, settings):
-        plot_line(
+        num_params = plot_line(
             color=color,
             use_unique_colors=use_unique_colors,
             plot_all=plot_all,
@@ -385,7 +386,7 @@ def example_plot_fct(
     plt.ylabel(to_plot)
     plt.legend()
     plt.grid()
-    plt.title(f"{to_plot} vs {plot_over}")
+    plt.title(f"{to_plot} vs {plot_over} (depth={depth_}, width={width_}, #params={format_num_params(num_params)})")
     plt.tight_layout()
     if show:
         plt.show()
@@ -457,30 +458,30 @@ def n_best_vals(
 
 if __name__ == "__main__":
     file = "results/results_many_epochs.csv"
-    # example_plot_fct(
-    #     file=file,
-    #     depth=None,
-    #     width=None,
-    #     num_heads=None,
-    #     linear_value=None,
-    #     alpha=0.8,
-    #     gain=None,
-    #     to_plot="val_loss",
-    #     plot_over="epoch",
-    #     show=True,
-    #     loglog=False,
-    #     plot_all=False,
-    #     from_sample=None,
-    #     to_sample=None,
-    # )
-    n_best_vals(
+    example_plot_fct(
         file=file,
-        n=5,
-        best_is="min",
-        metric="val_loss",
-        alpha=None,
-        gain=None,
-        grokfast=None,
+        depth=None,
+        width=None,
+        num_heads=None,
+        linear_value=None,
+        alpha=0.8,
+        gain=0.1,
+        to_plot="val_loss",
+        plot_over="epoch",
+        show=False,
+        loglog=False,
+        plot_all=False,
         from_sample=None,
-        to_sample=50,
+        to_sample=None,
     )
+    # n_best_vals(
+    #     file=file,
+    #     n=5,
+    #     best_is="min",
+    #     metric="val_loss",
+    #     alpha=None,
+    #     gain=None,
+    #     grokfast=None,
+    #     from_sample=None,
+    #     to_sample=50,
+    # )
