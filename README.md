@@ -7,7 +7,7 @@ Quick summary:
 
 - $\mathrm{grokfast}$ doesn't help performance on wikitext, even after $260$ epochs
 - It also doesn't hurt performance
-- Therefore, it might be helpful for improving performance on algorithmic tasks without hurting it on regular language tasks
+- Therefore, it might be helpful for improving performance on algorithmic tasks without hurting it on regular language tasks (though at the cost of an increased memory footprint)
 
 Table of contents:
 
@@ -20,7 +20,7 @@ Table of contents:
 ## Background
 
 $\mathrm{grokfast}$ works on the assumption that low-frequency parts of gradients carry the most signal.
-To make use of this, a low-pass-filter (LPF) will be applied to the graient, and the result will be added to the original gradient.
+To make use of this, a low-pass-filter (LPF) will be applied to the gradient, and the result will be added to the original gradient.
 
 There are two hyperparameters: $\alpha$ and $\lambda$; or, as I will call them later, `alpha` and `gain`.
 
@@ -57,7 +57,7 @@ def grokfast(net: torch.Module, alpha: float, gain: float):
 
 The authors recommend to use $\alpha \in \left[0.8, 0.99\right]$ and $\lambda \in \left[0.1, 5.0\right]$.
 
-They show that $\mathrm{grokfast}$ helps LLMs grok modular addition much faster than regular training.
+They show that $\mathrm{grokfast}$ helps LLMs grok modular addition much faster than regular training, which might transfer to other tasks that can be reduced to simple algorithms, like addition etc.
 
 ## Results
 
@@ -65,7 +65,7 @@ Here is an LLM training run without $\mathrm{grokfast}$, compared to the same LL
 
 ![all-settings-val-loss](results/images/val_loss_vs_epoch.png)
 
-As you can see, you can see nothing. So here is the average of the $5$ lowest validation losses over $260$ epochs:
+Runs where `alpha` and `gain` are high tend to fare worse. To quantify this, here is the average of the $5$ lowest validation losses over $260$ epochs:
 
 | `alpha` | `gain` | $\mathrm{grokfast}$ | Mean of $5$ lowest val losses |
 | --- | --- | --- | --- |
@@ -83,12 +83,12 @@ As you can see, you can see nothing. So here is the average of the $5$ lowest va
 | 0.99  | 2.0  | True     | 6.11                   |
 | 0.99  | 5.0  | True     | 6.34                   |
 
-Clearly, not using $\mathrm{grokfast}$ seems to be best.
+Clearly, not using $\mathrm{grokfast}$ seems to be best, but the difference to the next best setting is very small.
 The best alternative settings are $\alpha=0.9$, $\lambda=0.5$/$\lambda=0.1$.
 These are the least aggressive settings.
 I will only plot $\alpha=0.9$, $\lambda=0.1$ from now on.
-Why do I plot anything at all?
-Well, it's possible that $\mathrm{grokfast}$ does help in early settings,
+
+It's possible that $\mathrm{grokfast}$ does help in early settings,
 so let's look at the first ~$25$ epochs:
 
 ![grokfast-best-setting-25-epochs](results/images/val_loss_vs_epoch_alpha_0.8_gain_0.1_to_50.png)
@@ -146,6 +146,7 @@ On the other hand, $\mathrm{grokfast}$ doesn't seem to *reduce* performance on t
 
 That seems like a big win!
 
+However, it comes at the cost of having to keep the EMA of the gradients in memory, which is significant.
 
 ## Acknowledgement
 
